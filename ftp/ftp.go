@@ -54,9 +54,9 @@ const (
 // that begin with a 3-digit code. Multi-line replies are encoded by the
 // server as several consecutive lines and reassembled by the client.
 type Reply struct {
-	Code    Code
-	Text    string
-	Lines   []string // populated for multi-line replies (211, 214, 215, ...)
+	Code  Code
+	Text  string
+	Lines []string // populated for multi-line replies (211, 214, 215, ...)
 }
 
 // String returns the wire form of the reply. A single-line reply is

@@ -36,7 +36,7 @@ func main() {
 		if err := config.Load(f, cfg); err != nil {
 			log.Fatalf("load config: %v", err)
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	if *addr != "" {
 		cfg.Server.Listen = *addr

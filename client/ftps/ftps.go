@@ -32,58 +32,57 @@ func Connect(cfg Config) (*client.Client, error) {
 	if cfg.TLSConfig == nil {
 		return nil, fmt.Errorf("ftps: nil TLSConfig")
 	}
-	var (
-		c   *client.Client
-		err error
-	)
+	var c *client.Client
 	if cfg.Explicit {
-		c, err = client.New(cfg.Config)
+		cl, err := client.New(cfg.Config)
 		if err != nil {
 			return nil, err
 		}
+		c = cl
 		if err := c.AuthTLS("TLS"); err != nil {
-			c.Close()
+			_ = c.Close()
 			return nil, fmt.Errorf("ftps: AUTH TLS: %w", err)
 		}
 		if err := c.PBSZ(0); err != nil {
-			c.Close()
+			_ = c.Close()
 			return nil, fmt.Errorf("ftps: PBSZ: %w", err)
 		}
 		if cfg.ProtectDataChannel {
 			if err := c.Prot("P"); err != nil {
-				c.Close()
+				_ = c.Close()
 				return nil, fmt.Errorf("ftps: PROT P: %w", err)
 			}
 		} else {
 			if err := c.Prot("C"); err != nil {
-				c.Close()
+				_ = c.Close()
 				return nil, fmt.Errorf("ftps: PROT C: %w", err)
 			}
 		}
 	} else {
-		c, err = client.DialTLS(cfg.Config)
+		cl, err := client.DialTLS(cfg.Config)
 		if err != nil {
 			return nil, err
 		}
+		c = cl
 		if err := c.PBSZ(0); err != nil {
-			c.Close()
+			_ = c.Close()
 			return nil, err
 		}
 		if cfg.ProtectDataChannel {
 			if err := c.Prot("P"); err != nil {
-				c.Close()
+				_ = c.Close()
 				return nil, err
 			}
 		} else {
 			if err := c.Prot("C"); err != nil {
-				c.Close()
+				_ = c.Close()
 				return nil, err
 			}
 		}
 	}
 	if cfg.User != "" {
 		if err := c.Login(cfg.User, cfg.Password, ""); err != nil {
-			c.Close()
+			_ = c.Close()
 			return nil, err
 		}
 	}

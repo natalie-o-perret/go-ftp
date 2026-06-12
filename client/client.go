@@ -54,13 +54,13 @@ type Logger interface {
 // Client is a single FTP control channel connection. It is not safe to
 // share a Client across goroutines; create one per connection.
 type Client struct {
-	cfg     Config
-	ctrl    net.Conn
-	r       *ftp.ReplyScanner
-	w       *bufio.Writer
-	mu      sync.Mutex
-	host    string
-	port    string
+	cfg      Config
+	ctrl     net.Conn
+	r        *ftp.ReplyScanner
+	w        *bufio.Writer
+	mu       sync.Mutex
+	host     string
+	port     string
 	features []string
 }
 
@@ -88,11 +88,11 @@ func New(cfg Config) (*Client, error) {
 		r: ftp.NewReplyScanner(conn), w: bufio.NewWriter(conn)}
 	greet, err := c.readReply()
 	if err != nil {
-		c.ctrl.Close()
+		_ = c.ctrl.Close()
 		return nil, err
 	}
 	if !greet.Positive() {
-		c.ctrl.Close()
+		_ = c.ctrl.Close()
 		return nil, greet
 	}
 	return c, nil
@@ -117,18 +117,18 @@ func DialTLS(cfg Config) (*Client, error) {
 	}
 	tlsConn := tls.Client(raw, cfg.TLSConfig)
 	if err := tlsConn.Handshake(); err != nil {
-		raw.Close()
+		_ = raw.Close()
 		return nil, err
 	}
 	c := &Client{cfg: cfg, ctrl: tlsConn, host: host, port: port,
 		r: ftp.NewReplyScanner(tlsConn), w: bufio.NewWriter(tlsConn)}
 	greet, err := c.readReply()
 	if err != nil {
-		c.ctrl.Close()
+		_ = c.ctrl.Close()
 		return nil, err
 	}
 	if !greet.Positive() {
-		c.ctrl.Close()
+		_ = c.ctrl.Close()
 		return nil, greet
 	}
 	return c, nil
@@ -167,7 +167,7 @@ func (c *Client) ReadReply() (ftp.Reply, error) {
 
 func (c *Client) readReply() (ftp.Reply, error) {
 	if c.cfg.ReadTimeout > 0 {
-		c.ctrl.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout))
+		_ = c.ctrl.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout))
 	}
 	return c.r.Read()
 }

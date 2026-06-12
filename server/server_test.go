@@ -18,9 +18,8 @@ import (
 )
 
 type ftpClient struct {
-	c   net.Conn
-	br  *bufio.Reader
-	tag string
+	c  net.Conn
+	br *bufio.Reader
 }
 
 func dial(t *testing.T, addr string) *ftpClient {
@@ -30,7 +29,7 @@ func dial(t *testing.T, addr string) *ftpClient {
 		t.Fatal(err)
 	}
 	cl := &ftpClient{c: c, br: bufio.NewReader(c)}
-	cl.readReply(t, 220)
+	_ = cl.readReply(t, 220)
 	return cl
 }
 
@@ -53,41 +52,14 @@ func (c *ftpClient) send(t *testing.T, name, arg string) {
 	}
 }
 
-func (c *ftpClient) close() { c.c.Close() }
+func (c *ftpClient) close() { _ = c.c.Close() }
 
-func TestServerGreetAndQuit(t *testing.T) {
+func startTestServer(t *testing.T, root string, st auth.Authenticator) net.Listener {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer ln.Close()
-	srv, err := New(Config{
-		Name:        "test",
-		Listen:      ln.Addr().String(),
-		Authenticator: auth.NewStatic(),
-		Filesystem:  fs.NewOS(t.TempDir()),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	go srv.Serve(ln)
-	defer srv.Shutdown(testCtx(t))
-
-	cl := dial(t, ln.Addr().String())
-	defer cl.close()
-	cl.send(t, "QUIT", "")
-	cl.readReply(t, 221)
-}
-
-func TestServerLoginAndList(t *testing.T) {
-	root := t.TempDir()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	st := auth.NewStatic()
-	st.Add("alice", "hunter2")
 	srv, err := New(Config{
 		Name:          "test",
 		Listen:        ln.Addr().String(),
@@ -95,22 +67,41 @@ func TestServerLoginAndList(t *testing.T) {
 		Filesystem:    fs.NewOS(root),
 	})
 	if err != nil {
+		_ = ln.Close()
 		t.Fatal(err)
 	}
-	go srv.Serve(ln)
-	defer srv.Shutdown(testCtx(t))
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Shutdown(testCtx(t)) })
+	return ln
+}
+
+func TestServerGreetAndQuit(t *testing.T) {
+	ln := startTestServer(t, t.TempDir(), auth.NewStatic())
+	defer func() { _ = ln.Close() }()
+
+	cl := dial(t, ln.Addr().String())
+	defer cl.close()
+	cl.send(t, "QUIT", "")
+	_ = cl.readReply(t, 221)
+}
+
+func TestServerLoginAndList(t *testing.T) {
+	st := auth.NewStatic()
+	st.Add("alice", "hunter2")
+	ln := startTestServer(t, t.TempDir(), st)
+	defer func() { _ = ln.Close() }()
 
 	cl := dial(t, ln.Addr().String())
 	defer cl.close()
 	cl.send(t, "USER", "alice")
-	cl.readReply(t, 331)
+	_ = cl.readReply(t, 331)
 	cl.send(t, "PASS", "hunter2")
-	cl.readReply(t, 230)
+	_ = cl.readReply(t, 230)
 
 	cl.send(t, "PWD", "")
-	cl.readReply(t, 257)
+	_ = cl.readReply(t, 257)
 	cl.send(t, "CWD", "/")
-	cl.readReply(t, 250)
+	_ = cl.readReply(t, 250)
 }
 
 func TestServerPassiveRetrieve(t *testing.T) {
@@ -119,32 +110,18 @@ func TestServerPassiveRetrieve(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "greet.txt"), want, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ln.Close()
-	srv, err := New(Config{
-		Name:          "test",
-		Listen:        ln.Addr().String(),
-		Authenticator: auth.AllowAnonymous(),
-		Filesystem:    fs.NewOS(root),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	go srv.Serve(ln)
-	defer srv.Shutdown(testCtx(t))
+	ln := startTestServer(t, root, auth.AllowAnonymous())
+	defer func() { _ = ln.Close() }()
 
 	cl := dial(t, ln.Addr().String())
 	defer cl.close()
 	cl.send(t, "USER", "anonymous")
-	cl.readReply(t, 331)
+	_ = cl.readReply(t, 331)
 	cl.send(t, "PASS", "x@x")
-	cl.readReply(t, 230)
+	_ = cl.readReply(t, 230)
 
 	cl.send(t, "TYPE", "I")
-	cl.readReply(t, 200)
+	_ = cl.readReply(t, 200)
 	cl.send(t, "EPSV", "")
 	r := cl.readReply(t, 229)
 	port, err := ftp.ParseEPSVReply(r)
@@ -156,9 +133,9 @@ func TestServerPassiveRetrieve(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer data.Close()
+	defer func() { _ = data.Close() }()
 	cl.send(t, "RETR", "greet.txt")
-	cl.readReply(t, 150)
+	_ = cl.readReply(t, 150)
 	got, err := io.ReadAll(data)
 	if err != nil {
 		t.Fatal(err)
@@ -166,7 +143,7 @@ func TestServerPassiveRetrieve(t *testing.T) {
 	if !strings.Contains(string(got), string(want)) {
 		t.Fatalf("got %q want %q", got, want)
 	}
-	cl.readReply(t, 226)
+	_ = cl.readReply(t, 226)
 }
 
 func testCtx(t *testing.T) context.Context {

@@ -12,8 +12,7 @@ import (
 // carries the 3-digit code that is used until the terminating line is
 // observed.
 type ReplyScanner struct {
-	r   *bufio.Reader
-	buf []string
+	r *bufio.Reader
 }
 
 // NewReplyScanner wraps r in a buffered reader.
@@ -26,40 +25,6 @@ func (s *ReplyScanner) Read() (Reply, error) {
 	if s.r == nil {
 		return Reply{}, io.EOF
 	}
-	if len(s.buf) > 0 {
-		first := s.buf[0]
-		s.buf = s.buf[1:]
-		firstCode, firstText, ok := splitReplyLine(first)
-		if !ok {
-			return Reply{}, fmt.Errorf("ftp: malformed reply %q", first)
-		}
-		reply := Reply{Code: firstCode, Lines: []string{firstText}}
-		if strings.HasSuffix(first, "\r\n") == false {
-			reply.Lines = reply.Lines[:0]
-		}
-		if isMultiLineStart(first) {
-			for {
-				line, err := s.r.ReadString('\n')
-				if err != nil {
-					return Reply{}, err
-				}
-				code, text, ok := splitReplyLine(line)
-				if !ok {
-					return Reply{}, fmt.Errorf("ftp: malformed continuation %q", line)
-				}
-				if code != firstCode {
-					return Reply{}, fmt.Errorf("ftp: reply code changed mid-message: %d then %d", firstCode, code)
-				}
-				if !isMultiLineStart(line) {
-					reply.Lines = append(reply.Lines, text)
-					return reply, nil
-				}
-				reply.Lines = append(reply.Lines, text)
-			}
-		}
-		return reply, nil
-	}
-
 	first, err := s.r.ReadString('\n')
 	if err != nil {
 		return Reply{}, err

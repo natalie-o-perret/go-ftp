@@ -44,43 +44,7 @@ func (c *Client) openDataPassive() (*DataChannel, error) {
 	return dc, nil
 }
 
-// openDataActive binds a local listener, issues PORT or EPRT, and
-// returns a DataChannel the caller can Accept on. The Done function
-// is the same as for passive mode.
-func (c *Client) openDataActive() (*DataChannel, net.Listener, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, nil, err
-	}
-	host, portStr, err := net.SplitHostPort(l.Addr().String())
-	if err != nil {
-		l.Close()
-		return nil, nil, err
-	}
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		l.Close()
-		return nil, nil, err
-	}
-	if err := c.Port(host, port); err != nil {
-		l.Close()
-		return nil, nil, err
-	}
-	dc := &DataChannel{Addr: l.Addr().String()}
-	dc.Done = func() (ftp.Reply, error) {
-		reply, err := c.readReply()
-		if err != nil {
-			return ftp.Reply{}, err
-		}
-		if !reply.Positive() {
-			return reply, reply
-		}
-		return reply, nil
-	}
-	return dc, l, nil
-}
-
-// dialDataPassive opens a passive data channel and dials it.
+// openDataPassive opens a passive data channel and dials it.
 func (c *Client) dialDataPassive(timeout time.Duration) (*DataChannel, net.Conn, error) {
 	dc, err := c.openDataPassive()
 	if err != nil {
@@ -152,7 +116,7 @@ func (c *Client) List(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 4096)
 	for {

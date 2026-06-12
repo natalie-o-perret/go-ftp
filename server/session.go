@@ -52,7 +52,7 @@ func (s *session) greet() error {
 func (s *session) reply(r ftp.Reply) error {
 	s.wmu.Lock()
 	defer s.wmu.Unlock()
-	s.conn.SetWriteDeadline(time.Now().Add(s.srv.cfg.WriteTimeout))
+	_ = s.conn.SetWriteDeadline(time.Now().Add(s.srv.cfg.WriteTimeout))
 	_, err := s.bw.WriteString(r.String())
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (s *session) reply(r ftp.Reply) error {
 
 func (s *session) serve() error {
 	for {
-		s.conn.SetReadDeadline(time.Now().Add(s.srv.cfg.ReadTimeout))
+		_ = s.conn.SetReadDeadline(time.Now().Add(s.srv.cfg.ReadTimeout))
 		line, err := s.br.ReadString('\n')
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -103,7 +103,7 @@ func (s *session) dispatch(c ftp.Command) error {
 	case ftp.CmdPASS:
 		return s.handlePASS(c.Arg)
 	case ftp.CmdQUIT:
-		s.reply(ftp.NewReply(ftp.CodeGoodbye, "Goodbye"))
+		_ = s.reply(ftp.NewReply(ftp.CodeGoodbye, "Goodbye"))
 		return errQuit
 	case ftp.CmdNOOP:
 		return s.reply(ftp.NewReply(ftp.CodeOK, "NOOP ok"))
@@ -114,7 +114,7 @@ func (s *session) dispatch(c ftp.Command) error {
 	case ftp.CmdHELP:
 		return s.reply(ftp.NewReply(214, "Help me help you"))
 	case ftp.CmdPWD:
-		return s.reply(ftp.NewReply(ftp.CodePathCreated, fmt.Sprintf("\"%s\"", s.cwd)))
+		return s.reply(ftp.NewReply(ftp.CodePathCreated, fmt.Sprintf("%q", s.cwd)))
 	case ftp.CmdCWD:
 		return s.cwd2(c.Arg)
 	case ftp.CmdCDUP:
@@ -292,12 +292,12 @@ func (s *session) list(arg string) error {
 	if err != nil {
 		return s.reply(ftp.NewReply(ftp.CodeCantOpenData, err.Error()))
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := s.reply(ftp.NewReply(ftp.CodeDataOpen, "Opening data connection")); err != nil {
 		return err
 	}
 	for _, e := range entries {
-		io.WriteString(conn, formatListEntry(e)+"\r\n")
+		_, _ = io.WriteString(conn, formatListEntry(e)+"\r\n")
 	}
 	return s.reply(ftp.NewReply(ftp.CodeDataClose, "Transfer complete"))
 }
@@ -311,12 +311,12 @@ func (s *session) retr(arg string) error {
 	if err != nil {
 		return s.reply(ftp.NewReply(ftp.CodeCantOpenData, err.Error()))
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := s.reply(ftp.NewReply(ftp.CodeDataOpen, "Opening data connection")); err != nil {
 		return err
 	}
 	if err := s.srv.cfg.Filesystem.SendFile(s.auth, target, conn, s.rest); err != nil {
-		s.reply(ftp.NewReply(ftp.CodeConnClosed, err.Error()))
+		_ = s.reply(ftp.NewReply(ftp.CodeConnClosed, err.Error()))
 		return nil
 	}
 	return s.reply(ftp.NewReply(ftp.CodeDataClose, "Transfer complete"))
@@ -331,12 +331,12 @@ func (s *session) stor(arg string) error {
 	if err != nil {
 		return s.reply(ftp.NewReply(ftp.CodeCantOpenData, err.Error()))
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := s.reply(ftp.NewReply(ftp.CodeDataOpen, "Opening data connection")); err != nil {
 		return err
 	}
 	if err := s.srv.cfg.Filesystem.RecvFile(s.auth, target, conn); err != nil {
-		s.reply(ftp.NewReply(ftp.CodeStorageExceeded, err.Error()))
+		_ = s.reply(ftp.NewReply(ftp.CodeStorageExceeded, err.Error()))
 		return nil
 	}
 	return s.reply(ftp.NewReply(ftp.CodeDataClose, "Transfer complete"))
@@ -351,12 +351,12 @@ func (s *session) appe(arg string) error {
 	if err != nil {
 		return s.reply(ftp.NewReply(ftp.CodeCantOpenData, err.Error()))
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if err := s.reply(ftp.NewReply(ftp.CodeDataOpen, "Opening data connection")); err != nil {
 		return err
 	}
 	if err := s.srv.cfg.Filesystem.AppendFile(s.auth, target, conn); err != nil {
-		s.reply(ftp.NewReply(ftp.CodeStorageExceeded, err.Error()))
+		_ = s.reply(ftp.NewReply(ftp.CodeStorageExceeded, err.Error()))
 		return nil
 	}
 	return s.reply(ftp.NewReply(ftp.CodeDataClose, "Transfer complete"))
@@ -392,7 +392,7 @@ func (s *session) mkd(arg string) error {
 	if err := s.srv.cfg.Filesystem.Mkdir(s.auth, target); err != nil {
 		return s.reply(ftp.NewReply(ftp.CodeFileUnavailable, err.Error()))
 	}
-	return s.reply(ftp.NewReply(ftp.CodePathCreated, fmt.Sprintf("\"%s\" created", target)))
+	return s.reply(ftp.NewReply(ftp.CodePathCreated, fmt.Sprintf("%q created", target)))
 }
 
 func (s *session) rnfr(arg string) error {
@@ -452,7 +452,7 @@ func (s *session) mdtm(arg string) error {
 	return s.reply(ftp.NewReply(ftp.CodeFileStatus, st.ModTime.UTC().Format("20060102150405")))
 }
 
-func (s *session) auth2(arg string) error {
+func (s *session) auth2(_ string) error {
 	return s.reply(ftp.NewReply(ftp.CodeCommandNotImpl, "AUTH not supported on this server"))
 }
 

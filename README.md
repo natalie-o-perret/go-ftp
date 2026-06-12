@@ -1,5 +1,7 @@
 # go-ftp
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/natalie-o-perret/go-ftp.svg)](https://pkg.go.dev/github.com/natalie-o-perret/go-ftp)
+
 A focused, embeddable FTP + FTPS library and server in pure Go.
 
 > RFC 959 control channel, RFC 4217 explicit FTPS, implicit FTPS,

@@ -106,7 +106,7 @@ func (o *OS) List(u auth.User, p string) ([]Entry, error) {
 	if err != nil {
 		return nil, pathError("list", p, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	infos, err := f.Readdir(-1)
 	if err != nil {
 		return nil, pathError("list", p, err)
@@ -135,7 +135,7 @@ func (o *OS) SendFile(u auth.User, p string, w io.Writer, offset int64) error {
 	if err != nil {
 		return pathError("retr", p, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if offset > 0 {
 		if _, err := f.Seek(offset, io.SeekStart); err != nil {
 			return err
@@ -150,7 +150,7 @@ func (o *OS) RecvFile(u auth.User, p string, r io.Reader) error {
 	if err != nil {
 		return pathError("stor", p, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = io.Copy(f, r)
 	return err
 }
@@ -160,7 +160,7 @@ func (o *OS) AppendFile(u auth.User, p string, r io.Reader) error {
 	if err != nil {
 		return pathError("appe", p, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	_, err = io.Copy(f, r)
 	return err
 }

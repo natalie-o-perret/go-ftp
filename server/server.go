@@ -150,7 +150,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func (s *Server) serveLoop(ln net.Listener) error {
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -168,7 +168,7 @@ func (s *Server) serveLoop(ln net.Listener) error {
 			s.sessMu.Lock()
 			if s.sessCnt >= s.cfg.MaxConnections {
 				s.sessMu.Unlock()
-				conn.Close()
+				_ = conn.Close()
 				continue
 			}
 			s.sessCnt++
@@ -192,7 +192,7 @@ func (s *Server) serveLoop(ln net.Listener) error {
 // handleConn drives a single client session. The session lives until
 // the client disconnects or sends QUIT.
 func (s *Server) handleConn(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	remote := conn.RemoteAddr().String()
 	sess := newSession(s, conn)
 	if err := sess.greet(); err != nil {
